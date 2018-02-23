@@ -14,7 +14,6 @@
 #include <stdio.h>
 
 #include <d3d9.h>
-#include <vmr9.h>
 #include <evr.h>
 
 #include "windowless.h"
@@ -57,7 +56,7 @@ IMediaSeeking *pMS = NULL;
 IMediaPosition *pMP = NULL;
 IVideoFrameStep *pFS = NULL;
 
-// VMR9 interfaces
+// EVR interfaces
 IMFVideoDisplayControl *pWC = NULL;
 
 
@@ -81,12 +80,12 @@ HRESULT PlayMovieInWindow(LPTSTR szFile)
 
     if(SUCCEEDED(hr))
     {
-        SmartPtr <IBaseFilter> pVmr;
+        SmartPtr <IBaseFilter> pEvr;
 
         // Create the Video Mixing Renderer and add it to the graph
-        JIF(InitializeWindowlessVMR(&pVmr));
+        JIF(InitializeWindowlessEVR(&pEvr));
 
-        // Render the file programmatically to use the VMR9 as renderer.
+        // Render the file programmatically to use the EVR as renderer.
         // Pass TRUE to create an audio renderer also.
         if (FAILED(hr = RenderFileToVideoRenderer(pGB, szFile, TRUE)))
             return hr;
@@ -154,8 +153,6 @@ HRESULT InitVideoWindow(int nMultiplier, int nDivider)
         return S_OK;
 
     // Read the default video size
-    //hr = pWC->GetNativeVideoSize(&lWidth, &lHeight, NULL, NULL);
-
     SIZE nativeSize;
     SIZE aspectRatioSize;
 
@@ -226,8 +223,8 @@ void CheckVisibility(void)
     g_bAudioOnly = FALSE;
 
     //
-    // Because this sample explicitly loads the VMR9 into the filter graph
-    // before rendering a file, the IVMRWindowlessControl interface will exist
+    // Because this sample explicitly loads the EVR into the filter graph
+    // before rendering a file, the IMFVideoDisplayControl interface will exist
     // for all properly rendered files.  As a result, we can't depend on the
     // existence of the pWC interface to determine whether the media file has
     // a video component.  Instead, check the width and height values.
@@ -240,7 +237,7 @@ void CheckVisibility(void)
         hr = pWC->GetNativeVideoSize(&nativeSize, &aspectRatioSize);
         lWidth = nativeSize.cx;
         lHeight = nativeSize.cy;
-        //hr = pWC->GetNativeVideoSize(&lWidth, &lHeight, 0, 0);
+
         if (hr == E_NOINTERFACE)
         {
             // If this video is encoded with an unsupported codec,
@@ -1042,8 +1039,8 @@ int PASCAL wWinMain(HINSTANCE hInstC, HINSTANCE hInstP, LPWSTR lpCmdLine, int nC
         exit(1);
     }
 
-    // Verify that the VMR9 is present on this system
-    if(!VerifyVMR9())
+    // Verify that the EVR is present on this system
+    if(!VerifyEVR())
         return FALSE;
 
     // Was a filename specified on the command line?
@@ -1108,31 +1105,31 @@ int PASCAL wWinMain(HINSTANCE hInstC, HINSTANCE hInstP, LPWSTR lpCmdLine, int nC
 
 
 
-HRESULT InitializeWindowlessVMR(IBaseFilter **ppVmr9)
+HRESULT InitializeWindowlessEVR(IBaseFilter **ppEvr)
 {
-  IBaseFilter* pVmr = NULL;
+  IBaseFilter* pEvr = NULL;
 
-  if (!ppVmr9)
+  if (!ppEvr)
     return E_POINTER;
-  *ppVmr9 = NULL;
+  *ppEvr = NULL;
 
   // Create the VMR and add it to the filter graph.
   HRESULT hr = CoCreateInstance(CLSID_EnhancedVideoRenderer, NULL,
-                    CLSCTX_INPROC, IID_IBaseFilter, (void**)&pVmr);
+                    CLSCTX_INPROC, IID_IBaseFilter, (void**)&pEvr);
 
   if (SUCCEEDED(hr))
   {  
-    hr = pGB->AddFilter(pVmr, L"EVR");
+    hr = pGB->AddFilter(pEvr, L"EVR");
     if (SUCCEEDED(hr))
     {
       // Set the rendering mode and number of streams
       SmartPtr <IEVRFilterConfig> pConfig;
 
-      JIF(pVmr->QueryInterface(IID_IEVRFilterConfig, (void**)&pConfig));
+      JIF(pEvr->QueryInterface(IID_IEVRFilterConfig, (void**)&pConfig));
       JIF(pConfig->SetNumberOfStreams(1));
 
 	  IPin *pInputPin = nullptr;
-	  pVmr->FindPin(L"EVR Input0", &pInputPin);
+    pEvr->FindPin(L"EVR Input0", &pInputPin);
 
 	  IFilterGraph2 *pFilterGraph2 = nullptr;
       hr = pGB->QueryInterface(IID_IFilterGraph2,
@@ -1145,22 +1142,19 @@ HRESULT InitializeWindowlessVMR(IBaseFilter **ppVmr9)
       }
 
       IMFGetService *pGetService = nullptr;
-      hr = pVmr->QueryInterface(IID_IMFGetService, reinterpret_cast<LPVOID*>(&pGetService));
+      hr = pEvr->QueryInterface(IID_IMFGetService, reinterpret_cast<LPVOID*>(&pGetService));
       hr = pGetService->GetService(MR_VIDEO_RENDER_SERVICE, IID_IMFVideoDisplayControl, reinterpret_cast<LPVOID*>(&pWC));
       if( SUCCEEDED(hr))
       {
-        //JIF(pWC->SetVideoClippingWindow(ghApp));
-        //JIF(pWC->SetBorderColor(RGB(0,0,0)));
         JIF(pWC->SetVideoWindow(ghApp));
         JIF(pWC->SetAspectRatioMode(MFVideoARMode_None));
-        //JIF(pWC->SetBorderColor(RGB(0,0,0)));
         pWC->Release();
       }
     }
 
-    // Don't release the pVmr interface because we are copying it into
-    // the caller's ppVmr9 pointer
-    *ppVmr9 = pVmr;
+    // Don't release the pEvr interface because we are copying it into
+    // the caller's ppEvr pointer
+    *ppEvr = pEvr;
   }
 
   return hr;
@@ -1275,21 +1269,21 @@ void DisplayCapturedImage(LPCTSTR szFile)
 
 
 //----------------------------------------------------------------------------
-//  VerifyVMR9
+//  VerifyEVR
 //
-//  Verifies that VMR9 COM objects exist on the system and that the VMR9
+//  Verifies that EVR COM objects exist on the system and that the EVR
 //  can be instantiated.
 //
-//  Returns: FALSE if the VMR9 can't be created
+//  Returns: FALSE if the EVR can't be created
 //----------------------------------------------------------------------------
 
-BOOL VerifyVMR9(void)
+BOOL VerifyEVR(void)
 {
     HRESULT hr;
 
-    // Verify that the VMR exists on this system
+    // Verify that the EVR exists on this system
     IBaseFilter* pBF = NULL;
-    hr = CoCreateInstance(CLSID_VideoMixingRenderer9, NULL,
+    hr = CoCreateInstance(CLSID_EnhancedVideoRenderer, NULL,
                           CLSCTX_INPROC,
                           IID_IBaseFilter,
                           (LPVOID *)&pBF);
@@ -1301,15 +1295,15 @@ BOOL VerifyVMR9(void)
     else
     {
         MessageBox(NULL,
-            TEXT("This application requires the VMR-9.\r\n\r\n")
+            TEXT("This application requires the EVR.\r\n\r\n")
 
-            TEXT("The VMR-9 is not enabled when viewing through a Remote\r\n")
-            TEXT(" Desktop session. You can run VMR-enabled applications only\r\n") 
+            TEXT("The EVR is not enabled when viewing through a Remote\r\n")
+            TEXT(" Desktop session. You can run EVR-enabled applications only\r\n") 
             TEXT("on your local computer.\r\n\r\n")
 
             TEXT("\r\nThis sample will now exit."),
 
-            TEXT("Video Mixing Renderer (VMR9) capabilities are required"), MB_OK);
+            TEXT("Enhanced Video Renderer (EVR) capabilities are required"), MB_OK);
 
         return FALSE;
     }

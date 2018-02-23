@@ -39,11 +39,11 @@ void EnablePlaybackMenu(BOOL bEnable, int nMediaType);
 void GetFilename(TCHAR *pszFull, TCHAR *pszFile);
 void Msg(TCHAR *szFormat, ...);
 
-HRESULT InitializeWindowlessVMR(IBaseFilter **ppVmr9);
+HRESULT InitializeWindowlessEVR(IBaseFilter **ppEvr);
 void DisplayCapturedImage(LPCTSTR szFile);
 BOOL CaptureImage(LPCTSTR szFile);
 
-BOOL VerifyVMR9(void);
+BOOL VerifyEVR(void);
 
 // Macros
 #define DibNumColors(lpbi)      ((lpbi)->biClrUsed == 0 && (lpbi)->biBitCount <= 8 \
@@ -82,8 +82,8 @@ BOOL VerifyVMR9(void);
 #define MINIMUM_VIDEO_WIDTH     200
 #define MINIMUM_VIDEO_HEIGHT    120
 
-#define APPLICATIONNAME TEXT("Windowless9 Player\0")
-#define CLASSNAME       TEXT("VMR9WindowlessPlayer\0")
+#define APPLICATIONNAME TEXT("Windowless Player\0")
+#define CLASSNAME       TEXT("EVRWindowlessPlayer\0")
 
 #define WM_GRAPHNOTIFY  WM_USER+13
 
