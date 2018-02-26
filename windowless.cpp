@@ -24,6 +24,9 @@
 
 #pragma comment(lib, "mfuuid.lib")
 
+#define ScreenX GetSystemMetrics(SM_CXSCREEN);
+#define ScreenY GetSystemMetrics(SM_CYSCREEN);
+
 // An application can advertise the existence of its filter graph
 // by registering the graph with a global Running Object Table (ROT).
 // The GraphEdit application can detect and remotely view the running
@@ -173,12 +176,6 @@ HRESULT InitVideoWindow(int nMultiplier, int nDivider)
     int nBorderWidth  = GetSystemMetrics(SM_CXBORDER);
     int nBorderHeight = GetSystemMetrics(SM_CYBORDER);
 
-    // Account for size of title bar and borders for exact match
-    // of window client area to default video size
-    SetWindowPos(ghApp, NULL, 0, 0, lWidth + 2*nBorderWidth,
-                 lHeight + nTitleHeight + 2*nBorderHeight,
-                 SWP_NOMOVE | SWP_NOOWNERZORDER);
-
     GetClientRect(ghApp, &g_rcDest);
     hr = pWC->SetVideoPosition(NULL, &g_rcDest);
 
@@ -189,10 +186,6 @@ HRESULT InitVideoWindow(int nMultiplier, int nDivider)
 HRESULT InitPlayerWindow(void)
 {
     // Reset to a default size for audio and after closing a clip
-    SetWindowPos(ghApp, NULL, 0, 0,
-                 DEFAULT_AUDIO_WIDTH,
-                 DEFAULT_AUDIO_HEIGHT,
-                 SWP_NOMOVE | SWP_NOOWNERZORDER);
 
     // Check the 'full size' menu item
     CheckSizeMenu(ID_FILE_SIZE_NORMAL);
@@ -1067,30 +1060,34 @@ int PASCAL wWinMain(HINSTANCE hInstC, HINSTANCE hInstP, LPWSTR lpCmdLine, int nC
         exit(1);
     }
 
+    // Disable Maximize button
+    LONG lStyle = WS_SYSMENU | WS_CAPTION | WS_MINIMIZEBOX | WS_VISIBLE;  
+
     // Create the main window.  The WS_CLIPCHILDREN style is required.
-    ghApp = CreateWindow(CLASSNAME, APPLICATIONNAME,
-                         WS_OVERLAPPEDWINDOW | WS_CAPTION | WS_CLIPCHILDREN | WS_VISIBLE,
-                         CW_USEDEFAULT, CW_USEDEFAULT,
+    ghApp = CreateWindow(CLASSNAME, APPLICATIONNAME, lStyle, CW_USEDEFAULT, CW_USEDEFAULT,
                          DEFAULT_AUDIO_WIDTH, DEFAULT_AUDIO_HEIGHT,
                          0, 0, ghInst, 0);
 
     if(ghApp)
     {
-        // Save menu handle for later use
-        ghMenu = GetMenu(ghApp);
-        EnablePlaybackMenu(FALSE, 0);
+      // resize window
+      SetWindowPos(ghApp, NULL, 0, 0, 640+52, 480+12, SWP_NOMOVE | SWP_NOOWNERZORDER);
 
-        // If a media file was specified on the command line, open it now.
-        // (If the first character in the string isn't NULL, post an open clip message.)
-        if (g_szFileName[0] != 0)
-            PostMessage(ghApp, WM_COMMAND, ID_FILE_OPENCLIP, 0);
+      // Save menu handle for later use
+      ghMenu = GetMenu(ghApp);
+      EnablePlaybackMenu(FALSE, 0);
 
-        // Main message loop
-        while(GetMessage(&msg,NULL,0,0))
-        {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
+      // If a media file was specified on the command line, open it now.
+      // (If the first character in the string isn't NULL, post an open clip message.)
+      if (g_szFileName[0] != 0)
+          PostMessage(ghApp, WM_COMMAND, ID_FILE_OPENCLIP, 0);
+
+      // Main message loop
+      while(GetMessage(&msg,NULL,0,0))
+      {
+          TranslateMessage(&msg);
+          DispatchMessage(&msg);
+      }
     }
     else
     {

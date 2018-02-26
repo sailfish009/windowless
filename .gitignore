@@ -34,6 +34,8 @@
 *.obj
 *.opendb
 *.db
+*.idb
+*.res
 *.VC.db
 *.sdf
 *.exp
